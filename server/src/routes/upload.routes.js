@@ -1,23 +1,69 @@
 import { Router } from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
+import { v2 as cloudinary } from "cloudinary";
 import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
-const uploadDir = path.resolve("uploads");
-fs.mkdirSync(uploadDir, { recursive: true });
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => cb(null, Date.now() + "-" + Math.round(Math.random()*1e9) + path.extname(file.originalname).toLowerCase())
-});
+
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype))
+  fileFilter: (_req, file, cb) => {
+    cb(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype));
+  }
 });
-router.post("/", authenticate, authorize("seller"), upload.array("images", 8), (req,res) => {
-  const base = process.env.PUBLIC_API_URL || req.protocol + "://" + req.get("host");
-  res.status(201).json({ urls: req.files.map(file => base + "/uploads/" + file.filename) });
-});
+
+const cloudinaryConfigured = () =>
+  Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
+
+function uploadToCloudinary(file) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "cartiva/products",
+        resource_type: "image"
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    stream.end(file.buffer);
+  });
+}
+
+router.post(
+  "/",
+  authenticate,
+  authorize("seller"),
+  upload.array("images", 8),
+  async (req, res, next) => {
+    try {
+      if (!cloudinaryConfigured()) {
+        return res.status(503).json({
+          message: "Product image storage is not configured on the server."
+        });
+      }
+
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+      });
+
+      const results = await Promise.all((req.files || []).map(uploadToCloudinary));
+
+      res.status(201).json({
+        urls: results.map(result => result.secure_url)
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;
