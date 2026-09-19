@@ -75,7 +75,7 @@ function Seller(){
     try{
       const uploaded=files.length?await api.upload(files):[];
       const urls=f.images.split(',').map(x=>x.trim()).filter(Boolean);
-      const b={name:f.name.trim(),description:f.description.trim(),price:Number(f.price),stock:Number(f.stock),category:f.category,images:urls.concat(uploaded).slice(0,8)};
+      const b={name:f.name.trim(),description:f.description.trim(),price:Number(f.price),stock:Number(f.stock),category:f.category,images:(files.length?uploaded:urls).slice(0,8)};
       if(edit) await api.patch('/products/'+edit,b); else await api.post('/products',b);
       const wasEdit=Boolean(edit);setF({name:'',description:'',price:'',category:'',stock:'',images:''});setFiles([]);setEdit(null);
       setMsg(wasEdit?'Product updated successfully.':'Product published successfully.');await load();
