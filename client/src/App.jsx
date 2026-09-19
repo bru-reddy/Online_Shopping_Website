@@ -4,6 +4,20 @@ import './styles.css';
 
 const API=(import.meta.env.VITE_API_URL||'http://localhost:5000/api').trim();
 const normalizedAPI=API.endsWith('/api')?API:API+'/api';
+const API_ORIGIN=normalizedAPI.replace(/\/api\/?$/,'');
+function mediaUrl(value=''){
+  const src=String(value||'').trim();
+  if(!src) return '';
+  if(/^https?:\/\//i.test(src)){
+    try{
+      const u=new URL(src);
+      if(['localhost','127.0.0.1'].includes(u.hostname)) return API_ORIGIN+u.pathname+u.search;
+    }catch{}
+    return src;
+  }
+  if(src.startsWith('//')) return window.location.protocol+src;
+  return API_ORIGIN+'/'+src.replace(/^\/+/,'').replace(/^uploads\//,'uploads/');
+}
 async function req(path,opt={}) {
   const url=normalizedAPI+path;
   try {
