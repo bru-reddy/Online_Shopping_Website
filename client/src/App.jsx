@@ -2,15 +2,25 @@ import {createContext,useContext,useEffect,useState} from 'react';
 import {Routes,Route,Link,NavLink,useNavigate,useParams,Navigate} from 'react-router-dom';
 import './styles.css';
 
-const API=(import.meta.env.VITE_API_URL||'http://localhost:5000/api').replace(/\/$/,'');
+const configuredAPI=(import.meta.env.VITE_API_URL||'http://localhost:5000/api').trim().replace(/\\/$/,'');
+const API=/\\/api$/i.test(configuredAPI)?configuredAPI:configuredAPI+'/api';
 async function req(path,opt={}) {
+  const url=API+path;
   try {
-    const r=await fetch(API+path,{credentials:'include',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok){const error=new Error(d.message||'Request failed');error.status=r.status;error.code=d.code;throw error;}
+    const r=await fetch(url,{credentials:'include',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});
+    const contentType=r.headers.get('content-type')||'';
+    const d=contentType.includes('application/json')?await r.json().catch(()=>({})):await r.text().catch(()=> '');
+    if(!r.ok){
+      const serverMessage=typeof d==='string'?d.replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim():d.message;
+      const error=new Error(serverMessage||`Request failed (HTTP ${r.status})`);
+      error.status=r.status;error.code=d?.code;error.url=url;throw error;
+    }
     return d;
   } catch(error) {
-    if(error instanceof TypeError) throw new Error('Unable to connect to Cartiva. Please check the API deployment and try again.');
+    if(error instanceof TypeError) {
+      const networkError=new Error('Unable to reach the Cartiva API. Check the Render backend and frontend API URL.');
+      networkError.code='NETWORK_ERROR';networkError.url=url;throw networkError;
+    }
     throw error;
   }
 }
