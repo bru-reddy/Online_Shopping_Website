@@ -6,6 +6,10 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
 
+function normalizeEmail(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
 function publicUser(user) {
   return {
     id: user._id,
@@ -24,24 +28,58 @@ function issueToken(user) {
   );
 }
 
+function setAuthCookie(res, user) {
+  res.cookie("cartiva_token", issueToken(user), {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
+}
+
 router.post("/register", async (req, res, next) => {
   try {
-    const { name, email, password, role, phone } = req.body;
-    if (!name || !email || !password || !["customer", "seller"].includes(role)) {
-      return res.status(400).json({ message: "Name, email, password and valid role are required" });
+    const { name, password, role, phone } = req.body;
+    const email = normalizeEmail(req.body.email);
+
+    if (!name?.trim() || !email || !password || !["customer", "seller"].includes(role)) {
+      return res.status(400).json({
+        message: "Name, email, password and valid role are required"
+      });
     }
+
     const exists = await User.findOne({ email });
-    if (exists) return res.status(409).json({ message: "An account with this email already exists" });
+    if (exists) {
+      return res.status(409).json({
+        code: "EMAIL_EXISTS",
+        message: "This email ID already exists. Do you want to sign in?"
+      });
+    }
 
     const hashed = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email, password: hashed, role, phone });
-    res.cookie("cartiva_token", issueToken(user), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-    res.status(201).json({ user: publicUser(user) });
+
+    try {
+      const user = await User.create({
+        name: name.trim(),
+        email,
+        password: hashed,
+        role,
+        phone: phone?.trim() || ""
+      });
+
+      setAuthCookie(res, user);
+      return res.status(201).json({ user: publicUser(user) });
+    } catch (error) {
+      // Protect against two simultaneous registrations with the same email.
+      if (error?.code === 11000 && error?.keyPattern?.email) {
+        return res.status(409).json({
+          code: "EMAIL_EXISTS",
+          message: "This email ID already exists. Do you want to sign in?"
+        });
+      }
+      throw error;
+    }
   } catch (error) {
     next(error);
   }
@@ -49,25 +87,38 @@ router.post("/register", async (req, res, next) => {
 
 router.post("/login", async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select("+password");
-    if (!user || !(await bcrypt.compare(password || "", user.password))) {
-      return res.status(401).json({ message: "Invalid email or password" });
+    const email = normalizeEmail(req.body.email);
+    const password = req.body.password || "";
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
     }
-    res.cookie("cartiva_token", issueToken(user), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-    res.json({ user: publicUser(user) });
+
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({
+        code: "INVALID_CREDENTIALS",
+        message: "Invalid email or password"
+      });
+    }
+
+    setAuthCookie(res, user);
+    return res.json({ user: publicUser(user) });
   } catch (error) {
     next(error);
   }
 });
 
 router.post("/logout", (_req, res) => {
-  res.clearCookie("cartiva_token");
+  res.clearCookie("cartiva_token", {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
+  });
   res.json({ message: "Logged out" });
 });
 
