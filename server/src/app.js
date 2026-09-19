@@ -14,10 +14,31 @@ import path from "path";
 const app = express();
 
 app.use(helmet());
+
+const allowedOrigins = [
+  ...(process.env.FRONTEND_ORIGIN || "").split(","),
+  ...(process.env.CLIENT_URL || "").split(","),
+  "http://localhost:5173"
+]
+  .map(origin => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_ORIGIN || process.env.CLIENT_URL || "http://localhost:5173",
+  origin: (origin, callback) => {
+    // Requests without an Origin header (health checks, curl, server-to-server)
+    // are allowed. Browser requests must match a configured frontend origin.
+    if (!origin) return callback(null, true);
+
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("CORS origin not allowed"));
+  },
   credentials: true
 }));
+
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(morgan("dev"));
