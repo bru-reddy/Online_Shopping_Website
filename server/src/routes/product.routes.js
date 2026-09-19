@@ -33,6 +33,36 @@ router.get("/mine", authenticate, authorize("seller"), async (req, res, next) =>
   }
 });
 
+router.get("/owner/all", authenticate, authorize("owner"), async (req, res, next) => {
+  try {
+    const products = await Product.find({})
+      .populate("seller", "name email")
+      .sort({ createdAt: -1 });
+    res.json({ products });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/owner/:id", authenticate, authorize("owner"), async (req, res, next) => {
+  try {
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { active: false },
+      { new: true }
+    ).populate("seller", "name email");
+
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    res.json({
+      message: "Product removed from the marketplace.",
+      product
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/:id", async (req, res, next) => {
   try {
     const product = await Product.findOne({ _id: req.params.id, active: true }).populate("seller", "name");
