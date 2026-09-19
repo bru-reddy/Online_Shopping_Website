@@ -2,16 +2,16 @@ import {createContext,useContext,useEffect,useState} from 'react';
 import {Routes,Route,Link,NavLink,useNavigate,useParams,Navigate} from 'react-router-dom';
 import './styles.css';
 
-const configuredAPI=(import.meta.env.VITE_API_URL||'http://localhost:5000/api').trim().replace(/\\/$/,'');
-const API=/\\/api$/i.test(configuredAPI)?configuredAPI:configuredAPI+'/api';
+const API=(import.meta.env.VITE_API_URL||'http://localhost:5000/api').trim();
+const normalizedAPI=API.endsWith('/api')?API:API+'/api';
 async function req(path,opt={}) {
-  const url=API+path;
+  const url=normalizedAPI+path;
   try {
     const r=await fetch(url,{credentials:'include',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});
     const contentType=r.headers.get('content-type')||'';
     const d=contentType.includes('application/json')?await r.json().catch(()=>({})):await r.text().catch(()=> '');
     if(!r.ok){
-      const serverMessage=typeof d==='string'?d.replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim():d.message;
+      const serverMessage=typeof d==='string'?d.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim():d.message;
       const error=new Error(serverMessage||`Request failed (HTTP ${r.status})`);
       error.status=r.status;error.code=d?.code;error.url=url;throw error;
     }
