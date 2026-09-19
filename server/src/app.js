@@ -8,6 +8,8 @@ import authRoutes from "./routes/auth.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
+import path from "path";
 
 const app = express();
 
@@ -36,6 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/uploads", express.static(path.resolve("uploads")));
 
 app.use((err, _req, res, _next) => {
   console.error(err);
