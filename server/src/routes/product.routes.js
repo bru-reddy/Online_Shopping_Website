@@ -26,7 +26,9 @@ router.get("/", async (req, res, next) => {
 
 router.get("/mine", authenticate, authorize("seller"), async (req, res, next) => {
   try {
-    const products = await Product.find({ seller: req.user.id }).sort({ createdAt: -1 });
+    // Only marketplace-active listings belong in the seller's live catalogue.
+    // Owner moderation sets active=false, so moderated listings disappear here as well.
+    const products = await Product.find({ seller: req.user.id, active: true }).sort({ createdAt: -1 });
     res.json({ products });
   } catch (error) {
     next(error);
