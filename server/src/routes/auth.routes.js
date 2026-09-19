@@ -1,5 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { authenticate } from "../middleware/auth.js";
@@ -80,6 +82,54 @@ router.post("/register", async (req, res, next) => {
       }
       throw error;
     }
+  } catch (error) {
+    next(error);
+  }
+});
+
+const ownerLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { code: "OWNER_LOGIN_RATE_LIMITED", message: "Too many owner login attempts. Please try again later." }
+});
+
+router.post("/owner-login", ownerLoginLimiter, async (req, res, next) => {
+  try {
+    const code = String(req.body.code || "").trim();
+    const expected = String(process.env.OWNER_AUTH_CODE || "").trim();
+
+    if (!expected) {
+      return res.status(503).json({
+        code: "OWNER_AUTH_NOT_CONFIGURED",
+        message: "Owner authentication is not configured on the server."
+      });
+    }
+
+    if (!code || code.length !== expected.length ||
+        !crypto.timingSafeEqual(Buffer.from(code), Buffer.from(expected))) {
+      return res.status(401).json({
+        code: "INVALID_OWNER_CODE",
+        message: "Invalid owner authentication code."
+      });
+    }
+
+    let owner = await User.findOne({ role: "owner" }).select("+password");
+
+    if (!owner) {
+      const ownerPassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+      owner = await User.create({
+        name: process.env.OWNER_NAME || "Cartiva Owner",
+        email: process.env.OWNER_EMAIL || "owner@cartiva.local",
+        password: ownerPassword,
+        role: "owner",
+        phone: ""
+      });
+    }
+
+    setAuthCookie(res, owner);
+    return res.json({ user: publicUser(owner) });
   } catch (error) {
     next(error);
   }
