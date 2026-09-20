@@ -3,39 +3,32 @@ import Product from "./models/Product.js";
 
 const demoProducts = [
   {
-    name: "Apple AirPods Max",
-    description: "Apple AirPods Max wireless over-ear headphones with high-fidelity audio and active noise cancellation.",
+    name: "Apple AirPods Max Silver",
+    description: "Apple AirPods Max Silver wireless over-ear headphones designed for high-fidelity audio and immersive listening.",
     category: "Electronics",
     price: 54999,
-    imageQuery: "Apple AirPods Max"
+    imageQuery: "Apple AirPods Max Silver"
   },
   {
-    name: "MacBook Pro",
-    description: "Apple MacBook Pro laptop designed for professional work, coding, creative tasks and everyday computing.",
+    name: "Apple MacBook Pro 14 Inch Space Grey",
+    description: "Apple MacBook Pro 14-inch Space Grey laptop for professional work, coding, creative tasks and everyday computing.",
     category: "Computers & Accessories",
     price: 149999,
-    imageQuery: "MacBook Pro"
+    imageQuery: "Apple MacBook Pro 14 Inch Space Grey"
   },
   {
-    name: "iPhone 13",
-    description: "Apple iPhone 13 smartphone with a dual-camera system, OLED display and 5G connectivity.",
+    name: "iPhone 13 Pro",
+    description: "Apple iPhone 13 Pro smartphone with an advanced camera system, premium display and 5G connectivity.",
     category: "Mobiles",
-    price: 49999,
-    imageQuery: "iPhone 13"
+    price: 79999,
+    imageQuery: "iPhone 13 Pro"
   },
   {
-    name: "Samsung Galaxy S21 FE 5G",
-    description: "Samsung Galaxy S21 FE 5G smartphone with a high-refresh-rate display, multiple cameras and 5G connectivity.",
+    name: "Samsung Galaxy S8",
+    description: "Samsung Galaxy S8 smartphone with a compact premium design, high-resolution display and mobile connectivity.",
     category: "Mobiles",
-    price: 29999,
-    imageQuery: "Samsung Galaxy S21 FE 5G"
-  },
-  {
-    name: "Black Whisk",
-    description: "Black kitchen whisk for mixing, beating and preparing sauces, batters and other recipes.",
-    category: "Home & Kitchen",
-    price: 399,
-    imageQuery: "Black Whisk"
+    price: 19999,
+    imageQuery: "Samsung Galaxy S8"
   },
   {
     name: "Red Lipstick",
@@ -66,11 +59,18 @@ const demoProducts = [
     imageQuery: "Essence Mascara Lash Princess"
   },
   {
-    name: "Wooden Bathroom Vanity",
-    description: "Wooden bathroom vanity cabinet providing practical storage and a clean furniture finish for bathrooms.",
+    name: "Apple Airpods",
+    description: "Apple Airpods wireless earbuds designed for convenient everyday listening and calls.",
+    category: "Electronics",
+    price: 12999,
+    imageQuery: "Apple Airpods"
+  },
+  {
+    name: "Egg Slicer",
+    description: "Kitchen egg slicer for quickly cutting boiled eggs into even slices for salads, sandwiches and meals.",
     category: "Home & Kitchen",
-    price: 8999,
-    imageQuery: "Wooden Bathroom Vanity"
+    price: 399,
+    imageQuery: "Egg Slicer"
   }
 ];
 
