@@ -110,10 +110,13 @@ export async function seedDemoCatalog() {
     return;
   }
 
-  // Remove only products created by this demo seed. Seller-added products are untouched.
+  // Replace only seeded demo products. Seller-created products are untouched.
   await Product.deleteMany({
     seller: seller._id,
-    description: { $regex: /Cartiva demo catalog listing/i }
+    $or: [
+      { isDemo: true },
+      { description: { $regex: /practical Cartiva marketplace listing/i } }
+    ]
   });
 
   let created = 0;
@@ -130,7 +133,7 @@ export async function seedDemoCatalog() {
       category: product.category,
       stock: 15,
       active: true,
-      demoSeed: true
+      isDemo: true
     });
 
     created += 1;
