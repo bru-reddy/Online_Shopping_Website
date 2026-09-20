@@ -45,7 +45,7 @@ function AuthProvider({children}){const[u,setU]=useState(null),[loading,setLoadi
 function CartProvider({children}){const[x,setX]=useState(()=>JSON.parse(localStorage.getItem('cartiva_cart')||'[]'));const save=v=>{setX(v);localStorage.setItem('cartiva_cart',JSON.stringify(v))};const value={items:x,total:x.reduce((s,i)=>s+i.price*i.quantity,0),add:p=>save(x.some(i=>i.productId===p._id)?x.map(i=>i.productId===p._id?{...i,quantity:i.quantity+1}:i):x.concat({productId:p._id,name:p.name,price:p.price,image:p.images?.[0]||'',quantity:1})),change:(id,n)=>save(n<1?x.filter(i=>i.productId!==id):x.map(i=>i.productId===id?{...i,quantity:n}:i)),remove:id=>save(x.filter(i=>i.productId!==id)),clear:()=>save([])};return <CartContext.Provider value={value}>{children}</CartContext.Provider>}
 function useAuth(){return useContext(AuthContext)}
 function useCart(){return useContext(CartContext)}
-function Layout({children}){const{user,logout}=useAuth(),{items}=useCart();return <><header><Link className="logo" to="/">Cartiva<span>.</span></Link><nav><NavLink to="/">Shop</NavLink>{user?.role==='seller'?<NavLink to="/seller">Seller Hub</NavLink>:user?.role==='owner'?<NavLink to="/owner">Owner Control</NavLink>:user&&<NavLink to="/orders">Orders</NavLink>}{user&&<NavLink to="/notifications">Notifications</NavLink>}{!user?<><NavLink to="/login">Login</NavLink><NavLink className="outline" to="/register">Join</NavLink></>:<button onClick={logout}>Logout</button>}<NavLink to="/cart">Bag <b>{items.length}</b></NavLink></nav></header>{children}<footer>Cartiva · Direct marketplace for independent sellers.</footer></>}
+function Layout({children}){const{user,logout}=useAuth(),{items}=useCart();return <><header><Link className="logo" to="/">Cartiva<span>.</span></Link><nav><NavLink to="/">Shop</NavLink>{user?.role==='seller'?<><NavLink to="/seller">Seller Hub</NavLink><NavLink to="/seller#orders">Orders</NavLink></>:user?.role==='owner'?<NavLink to="/owner">Owner Control</NavLink>:user&&<NavLink to="/orders">Orders</NavLink>}{user&&<NavLink to="/notifications">Notifications</NavLink>}{!user?<><NavLink to="/login">Login</NavLink><NavLink className="outline" to="/register">Join</NavLink></>:<button onClick={logout}>Logout</button>}<NavLink to="/cart">Bag <b>{items.length}</b></NavLink></nav></header>{children}<footer>Cartiva · Direct marketplace for independent sellers.</footer></>}
 function Guard({role,children}){const{user,loading}=useAuth();if(loading)return <div className="loading">Loading Cartiva…</div>;if(!user)return <Navigate to="/login"/>;if(role&&user.role!==role)return <Navigate to="/"/>;return children}
 
 function Product({p}){const{add}=useCart();return <article className="card"><Link className="photo" to={'/products/'+p._id}>{p.images?.[0]?<img src={mediaUrl(p.images?.[0])} alt={p.name}/>:<span>CARTIVA</span>}</Link><div className="cardbody"><small>{p.category}</small><h3>{p.name}</h3><p>Sold by {p.seller?.name||'Independent seller'}</p><div className="row"><strong>₹{p.price.toLocaleString('en-IN')}</strong><button onClick={()=>add(p)}>Add</button></div></div></article>}
@@ -92,6 +92,21 @@ function Seller(){
       <button type="button"><strong>{o.length}</strong><span>Orders</span><small>Incoming orders</small></button>
       <button type="button"><strong>₹{totalValue.toLocaleString('en-IN')}</strong><span>Order value</span><small>Across all orders</small></button>
       <button type="button" className={lowStock?'attention':''}><strong>{lowStock+outOfStock}</strong><span>Stock alerts</span><small>{outOfStock} out of stock</small></button>
+    </section>
+    <section className="seller-orders-section" id="orders">
+      <div className="seller-section-head">
+        <div><small>ORDER MANAGEMENT</small><h2>Incoming orders</h2><p>Review customer details, delivery information, items and payment before fulfilling an order.</p></div>
+        <span className="seller-order-count">{o.length} {o.length===1?'order':'orders'}</span>
+      </div>
+      {o.length?<div className="seller-orders-list">{o.map(x=><article className="seller-order-card" key={x._id}>
+        <div className="seller-order-top">
+          <div><small>{x.orderNumber}</small><h3>{x.customer?.name||'Customer'}</h3><span>{new Date(x.createdAt).toLocaleString('en-IN')}</span></div>
+          <span className={'order-status status-'+x.status}>{x.status}</span>
+        </div>
+        <div className="seller-order-items">{x.items.map(i=><div className="seller-order-item" key={i.product}><div>{i.image?<img src={mediaUrl(i.image)} alt=""/>:<span className="order-thumb-placeholder">C</span>}<span>{i.name} × {i.quantity}</span></div><b>₹{(i.price*i.quantity).toLocaleString('en-IN')}</b></div>)}</div>
+        <div className="seller-order-meta"><div><small>DELIVERY</small><strong>{x.delivery.fullName}</strong><span>{x.delivery.phone}</span><span>{x.delivery.addressLine1}{x.delivery.addressLine2?' · '+x.delivery.addressLine2:''}</span><span>{x.delivery.city}, {x.delivery.state} — {x.delivery.postalCode}</span></div><div><small>PAYMENT</small><strong>{x.paymentMethod==='cod'?'Cash on Delivery':x.paymentMethod}</strong><span>Subtotal ₹{x.subtotal.toLocaleString('en-IN')}</span><span>Delivery {x.deliveryFee?'₹'+x.deliveryFee.toLocaleString('en-IN'):'Free'}</span><strong>Total ₹{x.total.toLocaleString('en-IN')}</strong></div></div>
+        <div className="seller-order-actions"><select value={x.status} onChange={e=>status(x._id,e.target.value)}>{['pending','confirmed','shipped','delivered','cancelled'].map(s=><option key={s}>{s}</option>)}</select><button type="button" className="details-btn" onClick={()=>{const el=document.getElementById('orders');el?.scrollIntoView({behavior:'smooth'})}}>Order details shown above</button></div>
+      </article>)}</div>:<div className="catalogue-empty seller-order-empty"><h3>No incoming orders</h3><p>New customer orders will appear here automatically.</p></div>}
     </section>
     <div className="sellergrid seller-modern">
       <form className="panel product-form" onSubmit={save}>
