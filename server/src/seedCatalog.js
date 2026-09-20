@@ -124,15 +124,47 @@ const catalog = {
   ]
 };
 
-function imageUrl(productName, index) {
-  const prompt = [
-    "photorealistic ecommerce product photo",
-    "single product centered",
-    "clean white studio background",
-    productName
-  ].join(" ");
-  return "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
-    "?width=800&height=800&nologo=true&seed=" + (1000 + index);
+const imageSources = {
+  "Electronics": ["laptops", "mobile-accessories", "smartphones"],
+  "Computers & Accessories": ["laptops"],
+  "Mobiles": ["smartphones", "mobile-accessories"],
+  "Tablets": ["tablets"],
+  "Fashion": ["mens-shirts", "mens-shoes", "tops", "womens-dresses", "womens-shoes", "womens-bags"],
+  "Home & Kitchen": ["kitchen-accessories", "home-decoration", "furniture"],
+  "Beauty": ["beauty", "skin-care"],
+  "Sports": ["sports-accessories"],
+  "Books": ["books"],
+  "Other": ["home-decoration", "kitchen-accessories", "womens-bags"]
+};
+
+const fallbackImage = (name) =>
+  "https://placehold.co/800x800/png?text=" + encodeURIComponent(name);
+
+async function fetchImagePool(category) {
+  if (category === "Books") {
+    const isbns = [
+      "9780735211292", "9780857197689", "9780062315007", "9781786330895",
+      "9780132350884", "9780262046305", "9780135957059", "9781612681139",
+      "9781455586691", "9781982137274"
+    ];
+    return isbns.map(isbn => "https://covers.openlibrary.org/isbn/" + isbn + "-L.jpg");
+  }
+
+  const slugs = imageSources[category] || ["home-decoration"];
+  const responses = await Promise.all(slugs.map(async slug => {
+    try {
+      const response = await fetch(
+        "https://dummyjson.com/products/category/" + encodeURIComponent(slug) + "?limit=30"
+      );
+      if (!response.ok) return [];
+      const data = await response.json();
+      return (data.products || []).map(product => product.thumbnail || product.images?.[0]).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }));
+
+  return [...new Set(responses.flat())];
 }
 
 export async function seedDemoCatalog() {
@@ -151,6 +183,8 @@ export async function seedDemoCatalog() {
   let created = 0;
 
   for (const [category, items] of Object.entries(catalog)) {
+    const imagePool = await fetchImagePool(category);
+    const getImage = (index, name) => imagePool[index % imagePool.length] || fallbackImage(name);
     const existingProducts = await Product.find({
       seller: seller._id,
       category,
@@ -160,7 +194,7 @@ export async function seedDemoCatalog() {
     for (let index = 0; index < existingProducts.length; index += 1) {
       const product = existingProducts[index];
       if (String(product.description || "").includes("practical Cartiva marketplace listing")) {
-        product.images = [imageUrl(product.name, index)];
+        product.images = [getImage(index, product.name)];
         await product.save();
       }
     }
@@ -176,7 +210,7 @@ export async function seedDemoCatalog() {
         name,
         description: `${name} is a practical Cartiva marketplace listing selected for everyday use. Quality-focused, useful and ready to order.`,
         price,
-        images: [imageUrl(name, i)],
+        images: [getImage(i, name)],
         category,
         stock: 10 + ((i * 3) % 16),
         active: true
