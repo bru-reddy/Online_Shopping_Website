@@ -60,15 +60,24 @@ router.patch("/:id/status", authenticate, authorize("seller"), async (req, res, 
     order.status = req.body.status;
     await order.save();
 
-    await Notification.create({
-      recipient: order.customer,
-      order: order._id,
-      type: "order_status",
-      title: "Order status updated",
-      message: `Order ${order.orderNumber} is now ${order.status}.`
-    });
+    try {
+      await Notification.create({
+        recipient: order.customer,
+        order: order._id,
+        type: "order_status",
+        title: "Order status updated",
+        message: `Order ${order.orderNumber} is now ${order.status}.`
+      });
+    } catch (notificationError) {
+      // Order status must not fail just because a notification cannot be created.
+      console.error("Order status notification failed:", notificationError);
+    }
 
-    res.json({ order });
+    const updatedOrder = await Order.findById(order._id)
+      .populate("customer", "name email")
+      .populate("seller", "name email");
+
+    res.json({ order: updatedOrder });
   } catch (error) {
     next(error);
   }
