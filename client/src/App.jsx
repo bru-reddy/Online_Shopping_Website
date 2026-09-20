@@ -50,7 +50,7 @@ function Layout({children}){const{user,logout}=useAuth(),{items}=useCart();
  return <><header><Link className="logo" to={homePath}>Cartiva<span>.</span></Link><nav>
  {!user&&<NavLink to="/">Shop</NavLink>}
  {user?.role==='customer'&&<><NavLink to="/">Shop</NavLink><NavLink to="/orders">Orders</NavLink><NavLink to="/notifications">Notifications</NavLink><NavLink to="/cart">Bag <b>{items.length}</b></NavLink></>}
- {user?.role==='seller'&&<><NavLink to="/seller">Seller Hub</NavLink><NavLink to="/seller#orders">Orders</NavLink><NavLink to="/notifications">Notifications</NavLink></>}
+ {user?.role==='seller'&&<><NavLink to="/seller">Seller Hub</NavLink><NavLink to="/orders">Orders</NavLink><NavLink to="/notifications">Notifications</NavLink></>}
  {user?.role==='owner'&&<NavLink to="/owner">Owner Control</NavLink>}
  {!user?<><NavLink to="/login">Login</NavLink><NavLink className="outline" to="/register">Join</NavLink></>:<button onClick={logout}>Logout</button>}
  </nav></header>{children}<footer>Cartiva · Direct marketplace for independent sellers.</footer></>}
@@ -68,13 +68,12 @@ function Orders(){const{user}=useAuth(),[o,setO]=useState([]),[expanded,setExpan
 
 function Notifications(){const[n,setN]=useState([]);const load=()=>api.get('/notifications').then(x=>setN(x.notifications));useEffect(()=>{load()},[]);async function read(id){await api.patch('/notifications/'+id+'/read',{});load()}return <main className="page"><small>INBOX</small><h1>Notifications</h1><div className="notifications">{n.length?n.map(x=><button className={x.read?'note read':'note'} key={x._id} onClick={()=>!x.read&&read(x._id)}><b>{x.title}</b><span>{x.message}</span><small>{new Date(x.createdAt).toLocaleString('en-IN')}</small></button>):<div className="empty">No notifications.</div>}</div></main>}
 function Seller(){
-  const[p,setP]=useState([]),[o,setO]=useState([]),[edit,setEdit]=useState(null),
+  const[p,setP]=useState([]),[edit,setEdit]=useState(null),
     [f,setF]=useState({name:'',description:'',price:'',category:'',stock:'',images:''}),
     [files,setFiles]=useState([]),[msg,setMsg]=useState(''),[err,setErr]=useState(''),
-    [busy,setBusy]=useState(false),[query,setQuery]=useState(''),[drag,setDrag]=useState(false),[statusBusy,setStatusBusy]=useState(''),[statusErr,setStatusErr]=useState('');
+    [busy,setBusy]=useState(false),[query,setQuery]=useState(''),[drag,setDrag]=useState(false);
   const categories=['Electronics','Computers & Accessories','Mobiles','Tablets','Fashion','Home & Kitchen','Beauty','Books','Sports','Other'];
-  const load=()=>Promise.all([api.get('/products/mine'),api.get('/orders/mine')]).then(([a,b])=>{setP(a.products);setO(b.orders)}).catch(e=>setErr(e.message));
-  async function status(id,s){setStatusErr('');setStatusBusy(id);try{const x=await api.patch('/orders/'+id+'/status',{status:s});setO(v=>v.map(order=>order._id===id?(x.order||{...order,status:s}):order));}catch(e){setStatusErr(e.message||'Could not update order status.');}finally{setStatusBusy('')}}
+  const load=()=>api.get('/products/mine').then(x=>setP(x.products)).catch(e=>setErr(e.message));
   useEffect(()=>{load()},[]);
   const reset=()=>{setF({name:'',description:'',price:'',category:'',stock:'',images:''});setFiles([]);setEdit(null);setMsg('');setErr('')};
   const selectFiles=(list)=>{const selected=Array.from(list||[]);if(selected.length>8){setErr('You can upload up to 8 images.');return}const invalid=selected.find(file=>!/^image\/(jpeg|png|webp|gif)$/.test(file.type)||file.size>5*1024*1024);if(invalid){setErr('Each image must be JPG, PNG, WEBP or GIF and no larger than 5 MB.');return}setErr('');setFiles(selected)};
@@ -95,29 +94,14 @@ function Seller(){
   }
   async function del(id){if(!confirm('Remove this product from your catalogue?'))return;try{await api.del('/products/'+id);setMsg('Product removed.');await load()}catch(e){setErr(e.message)}}
   const visible=p.filter(x=>(x.name+' '+x.category).toLowerCase().includes(query.toLowerCase()));
-  const totalValue=o.reduce((s,x)=>s+x.total,0),lowStock=p.filter(x=>x.stock>0&&x.stock<=5).length,outOfStock=p.filter(x=>x.stock===0).length;
+  const lowStock=p.filter(x=>x.stock>0&&x.stock<=5).length,outOfStock=p.filter(x=>x.stock===0).length,categoryCount=new Set(p.map(x=>x.category)).size;
   return <main className="page seller-page">
-    <section className="seller-hero"><div><div className="eyebrow">SELLER HUB · STORE CONTROL</div><h1>Build a store<br/><em>people remember.</em></h1><p>Publish products, keep stock updated and manage incoming orders from one place.</p></div><div className="seller-badge"><span>LIVE STORE</span><strong>{p.length}</strong><small>active products</small></div></section>
+    <section className="seller-hero"><div><div className="eyebrow">SELLER HUB · STORE CONTROL</div><h1>Build a store<br/><em>people remember.</em></h1><p>Publish products, keep stock updated and manage your catalogue from one place.</p></div><div className="seller-badge"><span>LIVE STORE</span><strong>{p.length}</strong><small>active products</small></div></section>
     <section className="seller-stats">
       <button type="button" onClick={()=>document.getElementById('catalogue')?.scrollIntoView({behavior:'smooth'})}><strong>{p.length}</strong><span>Products</span><small>In your catalogue</small></button>
-      <button type="button"><strong>{o.length}</strong><span>Orders</span><small>Incoming orders</small></button>
-      <button type="button"><strong>₹{totalValue.toLocaleString('en-IN')}</strong><span>Order value</span><small>Across all orders</small></button>
-      <button type="button" className={lowStock?'attention':''}><strong>{lowStock+outOfStock}</strong><span>Stock alerts</span><small>{outOfStock} out of stock</small></button>
-    </section>
-    <section className="seller-orders-section" id="orders">{statusErr&&<div className="error">{statusErr}</div>}
-      <div className="seller-section-head">
-        <div><small>ORDER MANAGEMENT</small><h2>Incoming orders</h2><p>Review customer details, delivery information, items and payment before fulfilling an order.</p></div>
-        <span className="seller-order-count">{o.length} {o.length===1?'order':'orders'}</span>
-      </div>
-      {o.length?<div className="seller-orders-list">{o.map(x=><article className="seller-order-card" key={x._id}>
-        <div className="seller-order-top">
-          <div><small>{x.orderNumber}</small><h3>{x.customer?.name||'Customer'}</h3><span>{new Date(x.createdAt).toLocaleString('en-IN')}</span></div>
-          <span className={'order-status status-'+x.status}>{x.status}</span>
-        </div>
-        <div className="seller-order-items">{x.items.map(i=><div className="seller-order-item" key={i.product}><div>{i.image?<img src={mediaUrl(i.image)} alt=""/>:<span className="order-thumb-placeholder">C</span>}<span>{i.name} × {i.quantity}</span></div><b>₹{(i.price*i.quantity).toLocaleString('en-IN')}</b></div>)}</div>
-        <div className="seller-order-meta"><div><small>DELIVERY</small><strong>{x.delivery.fullName}</strong><span>{x.delivery.phone}</span><span>{x.delivery.addressLine1}{x.delivery.addressLine2?' · '+x.delivery.addressLine2:''}</span><span>{x.delivery.city}, {x.delivery.state} — {x.delivery.postalCode}</span></div><div><small>PAYMENT</small><strong>{x.paymentMethod==='cod'?'Cash on Delivery':x.paymentMethod}</strong><span>Subtotal ₹{x.subtotal.toLocaleString('en-IN')}</span><span>Delivery {x.deliveryFee?'₹'+x.deliveryFee.toLocaleString('en-IN'):'Free'}</span><strong>Total ₹{x.total.toLocaleString('en-IN')}</strong></div></div>
-        <div className="seller-order-actions"><select disabled={statusBusy===x._id} value={x.status} onChange={e=>status(x._id,e.target.value)}>{['pending','confirmed','shipped','delivered','cancelled'].map(s=><option key={s}>{s}</option>)}</select><button type="button" className="details-btn" onClick={()=>{const el=document.getElementById('orders');el?.scrollIntoView({behavior:'smooth'})}}>Order details shown above</button></div>
-      </article>)}</div>:<div className="catalogue-empty seller-order-empty"><h3>No incoming orders</h3><p>New customer orders will appear here automatically.</p></div>}
+      <button type="button" onClick={()=>document.getElementById('catalogue')?.scrollIntoView({behavior:'smooth'})}><strong>{categoryCount}</strong><span>Categories</span><small>Product categories</small></button>
+      <button type="button" onClick={()=>document.getElementById('catalogue')?.scrollIntoView({behavior:'smooth'})}><strong>{lowStock}</strong><span>Low stock</span><small>5 units or fewer</small></button>
+      <button type="button" onClick={()=>document.getElementById('catalogue')?.scrollIntoView({behavior:'smooth'})} className={outOfStock?'attention':''}><strong>{outOfStock}</strong><span>Out of stock</span><small>Needs restocking</small></button>
     </section>
     <div className="sellergrid seller-modern">
       <form className="panel product-form" onSubmit={save}>
