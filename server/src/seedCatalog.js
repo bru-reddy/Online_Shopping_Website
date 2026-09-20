@@ -159,7 +159,7 @@ export async function seedDemoCatalog() {
 
     for (let index = 0; index < existingProducts.length; index += 1) {
       const product = existingProducts[index];
-      if ((product.images || []).some(url => String(url).includes("loremflickr.com"))) {
+      if (String(product.description || "").includes("practical Cartiva marketplace listing")) {
         product.images = [imageUrl(product.name, index)];
         await product.save();
       }
