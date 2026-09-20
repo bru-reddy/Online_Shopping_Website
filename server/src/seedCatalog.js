@@ -89,9 +89,9 @@ async function fetchImage(product) {
     const exact = (data.products || []).find(
       item => String(item.title || "").toLowerCase() === product.imageQuery.toLowerCase()
     );
-    const match = exact || data.products?.[0];
 
-    return match?.images?.[0] || match?.thumbnail || fallbackImage(product.name);
+    // Never use an unrelated product image. If there is no exact match, use a named placeholder.
+    return exact?.images?.[0] || exact?.thumbnail || fallbackImage(product.name);
   } catch {
     return fallbackImage(product.name);
   }
@@ -110,34 +110,64 @@ export async function seedDemoCatalog() {
     return;
   }
 
-  // Replace only seeded demo products. Seller-created products are untouched.
-  await Product.deleteMany({
+  const legacyDemoProducts = await Product.find({
     seller: seller._id,
-    $or: [
-      { isDemo: true },
-      { description: { $regex: /practical Cartiva marketplace listing/i } }
-    ]
+    description: { $regex: /practical Cartiva marketplace listing/i }
   });
 
-  let created = 0;
+  if (legacyDemoProducts.length) {
+    await Product.deleteMany({
+      _id: { $in: legacyDemoProducts.map(product => product._id) }
+    });
+  }
+
+  const expectedNames = new Set(demoProducts.map(product => product.name));
+  const existingDemoProducts = await Product.find({
+    seller: seller._id,
+    isDemo: true
+  });
+
+  const keepExisting =
+    existingDemoProducts.length === demoProducts.length &&
+    existingDemoProducts.every(product => expectedNames.has(product.name));
+
+  if (keepExisting) {
+    for (const product of demoProducts) {
+      const existing = existingDemoProducts.find(item => item.name === product.name);
+      existing.description = product.description;
+      existing.category = product.category;
+      existing.price = product.price;
+      existing.stock = 15;
+      existing.active = true;
+      if (!existing.images?.length) {
+        existing.images = [await fetchImage(product)];
+      }
+      await existing.save();
+    }
+
+    console.log("Demo catalog verified: 10 products for " + seller.email + ".");
+    return;
+  }
+
+  if (existingDemoProducts.length) {
+    await Product.deleteMany({
+      _id: { $in: existingDemoProducts.map(product => product._id) }
+    });
+  }
 
   for (const product of demoProducts) {
-    const image = await fetchImage(product);
-
     await Product.create({
       seller: seller._id,
       name: product.name,
       description: product.description,
       price: product.price,
-      images: [image],
+      images: [await fetchImage(product)],
       category: product.category,
       stock: 15,
       active: true,
       isDemo: true
     });
-
-    created += 1;
   }
 
-  console.log("Demo catalog seed complete: " + created + " products for " + seller.email + ".");
+  console.log("Demo catalog seeded: 10 products for " + seller.email + ".");
 }
