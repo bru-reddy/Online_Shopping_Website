@@ -21,7 +21,7 @@ function mediaUrl(value=''){
 async function req(path,opt={}) {
   const url=normalizedAPI+path;
   try {
-    const r=await fetch(url,{credentials:'include',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});
+    const headers={...(opt.headers||{})};if(opt.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(url,{credentials:'include',...opt,headers});
     const contentType=r.headers.get('content-type')||'';
     const d=contentType.includes('application/json')?await r.json().catch(()=>({})):await r.text().catch(()=> '');
     if(!r.ok){
