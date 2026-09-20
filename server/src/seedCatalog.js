@@ -86,12 +86,26 @@ async function fetchImage(product) {
     if (!response.ok) return fallbackImage(product.name);
 
     const data = await response.json();
-    const exact = (data.products || []).find(
-      item => String(item.title || "").toLowerCase() === product.imageQuery.toLowerCase()
-    );
+    const products = data.products || [];
+    const queryTokens = product.imageQuery.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const scored = products
+      .map(item => {
+        const title = String(item.title || "").toLowerCase();
+        const hits = queryTokens.filter(token => title.includes(token)).length;
+        return { item, score: queryTokens.length ? hits / queryTokens.length : 0 };
+      })
+      .sort((a, b) => b.score - a.score);
 
-    // Never use an unrelated product image. If there is no exact match, use a named placeholder.
-    return exact?.images?.[0] || exact?.thumbnail || fallbackImage(product.name);
+    const exact = scored.find(x => x.item.title?.toLowerCase() === product.imageQuery.toLowerCase());
+    const relevant = scored.find(x => x.score >= 0.5);
+
+    // Prefer an exact match, otherwise use only a reasonably relevant product image.
+    // Never silently use an unrelated product image.
+    return exact?.item?.images?.[0]
+      || exact?.item?.thumbnail
+      || relevant?.item?.images?.[0]
+      || relevant?.item?.thumbnail
+      || fallbackImage(product.name);
   } catch {
     return fallbackImage(product.name);
   }
@@ -139,9 +153,8 @@ export async function seedDemoCatalog() {
       existing.price = product.price;
       existing.stock = 15;
       existing.active = true;
-      if (!existing.images?.length) {
-        existing.images = [await fetchImage(product)];
-      }
+      // Refresh demo images so broken or previously missing image URLs are repaired.
+      existing.images = [await fetchImage(product)];
       await existing.save();
     }
 
