@@ -8,7 +8,8 @@ const productSchema = new mongoose.Schema({
   images: [{ type: String, trim: true }],
   category: { type: String, required: true, trim: true, maxlength: 60 },
   stock: { type: Number, required: true, min: 0, default: 0 },
-  active: { type: Boolean, default: true }
+  active: { type: Boolean, default: true },
+  isDemo: { type: Boolean, default: false }
 }, { timestamps: true });
 
 productSchema.index({ name: "text", description: "text", category: "text" });
