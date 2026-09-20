@@ -124,8 +124,21 @@ const catalog = {
   ]
 };
 
-function imageUrl(query, lock) {
-  return `https://loremflickr.com/800/800/${encodeURIComponent(query)}?lock=${lock}`;
+const stableImages = [
+  "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80"
+];
+
+function imageUrl(index) {
+  return stableImages[index % stableImages.length];
 }
 
 export async function seedDemoCatalog() {
@@ -144,12 +157,21 @@ export async function seedDemoCatalog() {
   let created = 0;
 
   for (const [category, items] of Object.entries(catalog)) {
-    const existing = await Product.countDocuments({
+    const existingProducts = await Product.find({
       seller: seller._id,
       category,
       active: true
-    });
+    }).sort({ createdAt: 1 });
 
+    for (let index = 0; index < existingProducts.length; index += 1) {
+      const product = existingProducts[index];
+      if ((product.images || []).some(url => String(url).includes("loremflickr.com"))) {
+        product.images = [imageUrl(index)];
+        await product.save();
+      }
+    }
+
+    const existing = existingProducts.length;
     const missing = Math.max(0, 10 - existing);
     if (!missing) continue;
 
@@ -160,7 +182,7 @@ export async function seedDemoCatalog() {
         name,
         description: `${name} is a practical Cartiva marketplace listing selected for everyday use. Quality-focused, useful and ready to order.`,
         price,
-        images: [imageUrl(imageQuery, `${category}-${i + 1}`.replace(/[^a-z0-9-]/gi, "-"))],
+        images: [imageUrl(i)],
         category,
         stock: 10 + ((i * 3) % 16),
         active: true
