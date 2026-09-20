@@ -124,21 +124,15 @@ const catalog = {
   ]
 };
 
-const stableImages = [
-  "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80"
-];
-
-function imageUrl(index) {
-  return stableImages[index % stableImages.length];
+function imageUrl(productName, index) {
+  const prompt = [
+    "photorealistic ecommerce product photo",
+    "single product centered",
+    "clean white studio background",
+    productName
+  ].join(" ");
+  return "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
+    "?width=800&height=800&nologo=true&seed=" + (1000 + index);
 }
 
 export async function seedDemoCatalog() {
@@ -166,7 +160,7 @@ export async function seedDemoCatalog() {
     for (let index = 0; index < existingProducts.length; index += 1) {
       const product = existingProducts[index];
       if ((product.images || []).some(url => String(url).includes("loremflickr.com"))) {
-        product.images = [imageUrl(index)];
+        product.images = [imageUrl(product.name, index)];
         await product.save();
       }
     }
@@ -182,7 +176,7 @@ export async function seedDemoCatalog() {
         name,
         description: `${name} is a practical Cartiva marketplace listing selected for everyday use. Quality-focused, useful and ready to order.`,
         price,
-        images: [imageUrl(i)],
+        images: [imageUrl(name, i)],
         category,
         stock: 10 + ((i * 3) % 16),
         active: true
